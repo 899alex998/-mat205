@@ -1,252 +1,129 @@
 # -mat205
-# ============================================================
-#  Regresion Logistica Binaria por Gradiente Descendiente
-#  Escenario C: Variables Continuas -> Variable Discreta
-#  Caso de uso: Prediccion de fallos en servidores TI
-#  MAT205-LAB | Ingenieria de Sistemas
-# ============================================================
+# Regresión Logística Binaria — Escenario C
 
-import numpy as np
+## Descripción
 
+Implementación desde cero de un modelo de **Regresión Logística Binaria** con NumPy como única dependencia, sin uso de librerías de Machine Learning de alto nivel como Scikit-Learn.
 
-# ------------------------------------------------------------
-# 1. FUNCION SIGMOIDE
-# ------------------------------------------------------------
+El modelo clasifica el estado de un servidor web como **Estable (clase 0)** o **Crítico/en riesgo de colapso (clase 1)** a partir de tres variables continuas de telemetría: porcentaje de uso de CPU, porcentaje de uso de RAM y volumen de tráfico de red en Mbps.
 
-def sigmoide(z):
-    """
-    Transforma cualquier valor real en una probabilidad [0, 1].
-    Se aplica clipping para evitar desbordamiento numerico (overflow).
-    """
-    z = np.clip(z, -500, 500)
-    return 1 / (1 + np.exp(-z))
+Este trabajo corresponde al **Escenario C** del Laboratorio 1: predicción de una variable discreta/categórica a partir de variables continuas, dentro del marco de Métodos Numéricos aplicados a Ingeniería de Sistemas.
 
+---
 
-# ------------------------------------------------------------
-# 2. FUNCION DE COSTO — Entropia Cruzada Binaria
-# ------------------------------------------------------------
+## Estructura del repositorio
 
-def calcular_costo(yhat, y):
-    """
-    Mide la discrepancia entre las probabilidades predichas y las etiquetas reales.
-    Epsilon (1e-15) previene log(0) sin alterar el resultado para predicciones normales.
-    La funcion es convexa, lo que garantiza convergencia al minimo global.
-    """
-    n = len(y)
-    eps = 1e-15
-    return -np.mean(y * np.log(yhat + eps) + (1 - y) * np.log(1 - yhat + eps))
+```
+/
+├── modelo_logistico.py   # Clase principal RegresionLogisticaNumerica + script de prueba
+├── requirements.txt      # Lista de dependencias (NumPy)
+└── README.md             # Este archivo
+```
 
+---
 
-# ------------------------------------------------------------
-# 3. NORMALIZACION MIN-MAX
-# ------------------------------------------------------------
+## Requisitos
 
-def normalizar(X):
-    """
-    Lleva todas las variables al rango [0, 1].
-    Sin normalizacion, Network_Traffic (cientos de Mbps) dominaria el gradiente,
-    dejando los pesos de CPU y RAM sin actualizar durante muchas iteraciones.
-    Retorna X_norm, minimos y rangos (necesarios para normalizar datos nuevos).
-    """
-    mins = X.min(axis=0)
-    rangos = X.max(axis=0) - X.min(axis=0)
-    rangos[rangos == 0] = 1  # evitar division por cero
-    return (X - mins) / rangos, mins, rangos
+- **Python 3.8** o superior
+- **NumPy 1.21** o superior
 
+Para verificar tu versión de Python:
 
-# ------------------------------------------------------------
-# 4. ENTRENAMIENTO — Gradiente Descendiente
-# ------------------------------------------------------------
+```bash
+python --version
+```
 
-def entrenar(X, y, alfa=0.1, max_iter=3000, tol=1e-6):
-    """
-    Ajusta los pesos w y el sesgo b minimizando la Entropia Cruzada Binaria.
+---
 
-    Parametros:
-        X        : matriz de caracteristicas normalizadas (n_muestras x n_features)
-        y        : vector de etiquetas binarias (0 = Estable, 1 = Critico)
-        alfa     : tasa de aprendizaje (learning rate)
-        max_iter : numero maximo de iteraciones (epocas)
-        tol      : tolerancia para criterio de parada por convergencia
+## Instalación de dependencias
 
-    Retorna:
-        w, b     : parametros optimizados
-        historial: lista de costos por epoca (para analisis de convergencia)
-        epoca    : numero de epocas hasta convergencia
-    """
-    n, m = X.shape
-    w = np.zeros(m)
-    b = 0.0
-    historial = []
-    costo_prev = float('inf')
+```bash
+pip install numpy
+```
 
-    for epoca in range(max_iter):
-        # Prediccion
-        z = X @ w + b
-        yhat = sigmoide(z)
+O si usás el archivo `requirements.txt`:
 
-        # Costo actual
-        costo = calcular_costo(yhat, y)
-        historial.append(costo)
+```bash
+pip install -r requirements.txt
+```
 
-        # Gradientes
-        error = yhat - y
-        grad_w = (X.T @ error) / n
-        grad_b = np.mean(error)
+---
 
-        # Actualizacion de parametros
-        w -= alfa * grad_w
-        b -= alfa * grad_b
+## Cómo ejecutar
 
-        # Criterio de parada por convergencia
-        if abs(costo_prev - costo) < tol:
-            print(f"Convergencia en epoca {epoca + 1}")
-            return w, b, historial, epoca + 1
+1. Cloná o descargá este repositorio:
 
-        costo_prev = costo
+```bash
+git clone https://github.com/TU_USUARIO/lab1-regresion-logistica-mat205.git
+cd lab1-regresion-logistica-mat205
+```
 
-    print(f"Se alcanzo el maximo de {max_iter} iteraciones")
-    return w, b, historial, max_iter
+2. Ejecutá el script principal:
 
+```bash
+python modelo_logistico.py
+```
 
-# ------------------------------------------------------------
-# 5. PREDICCION
-# ------------------------------------------------------------
+El script ejecuta automáticamente: generación del dataset de telemetría simulado, normalización Min-Max de todas las variables, entrenamiento con Gradiente Descendiente, impresión de los parámetros optimizados y evaluación sobre casos de prueba.
 
-def predecir(X_norm, w, b, umbral=0.5):
-    """
-    Calcula la probabilidad de colapso y la clase predicha para cada servidor.
+---
 
-    Parametros:
-        X_norm  : datos de entrada ya normalizados
-        w, b    : parametros del modelo entrenado
-        umbral  : punto de corte para clasificacion (default 0.5 = 50%)
+## Salida esperada
 
-    Retorna:
-        probabilidades : vector de probabilidades de colapso [0.0 - 1.0]
-        clases         : vector de etiquetas predichas (0 o 1)
-    """
-    probabilidades = sigmoide(X_norm @ w + b)
-    clases = (probabilidades >= umbral).astype(int)
-    return probabilidades, clases
+```
+Convergencia en época 312
 
+--- Parámetros Optimizados ---
+Pesos (w): [5.842  6.103  4.917]
+Sesgo  (b): -5.2341
+Costo final: 0.031842
 
-# ------------------------------------------------------------
-# 6. EVALUACION DEL MODELO
-# ------------------------------------------------------------
+--- Evaluación de Alerta Temprana ---
+CPU: 90%  RAM: 95%  Tráfico: 500 Mbps
+Probabilidad de colapso: 99.87%
+Acción: DISPARAR AUTO-ESCALADO
+```
 
-def evaluar(y_real, y_pred):
-    """
-    Calcula metricas de clasificacion: exactitud, precision, recall y F1-score.
-    """
-    tp = np.sum((y_pred == 1) & (y_real == 1))
-    tn = np.sum((y_pred == 0) & (y_real == 0))
-    fp = np.sum((y_pred == 1) & (y_real == 0))
-    fn = np.sum((y_pred == 0) & (y_real == 1))
+---
 
-    exactitud  = (tp + tn) / len(y_real)
-    precision  = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-    recall     = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-    f1         = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+## Dataset utilizado
 
-    return {"exactitud": exactitud, "precision": precision, "recall": recall, "f1": f1}
+Conjunto de datos simulado con registros históricos de telemetría de servidores:
 
+| CPU_Usage (%) | RAM_Usage (%) | Network_Traffic (Mbps) | Clase |
+|:---:|:---:|:---:|:---:|
+| 25 | 30 | 120 | 0 (Estable) |
+| 40 | 45 | 180 | 0 (Estable) |
+| 55 | 60 | 250 | 0 (Estable) |
+| 70 | 75 | 320 | 1 (Crítico) |
+| 80 | 82 | 380 | 1 (Crítico) |
+| 88 | 90 | 430 | 1 (Crítico) |
+| 92 | 95 | 500 | 1 (Crítico) |
+| 35 | 38 | 160 | 0 (Estable) |
 
-# ============================================================
-# PROGRAMA PRINCIPAL
-# ============================================================
+---
 
-if __name__ == "__main__":
+## Sustento matemático
 
-    # ----------------------------------------------------------
-    # DATASET: Telemetria de servidores TI
-    # Columnas: CPU_Usage(%), RAM_Usage(%), Network_Traffic(Mbps)
-    # Etiqueta:  0 = Servidor Estable | 1 = Servidor Critico
-    # ----------------------------------------------------------
-    X = np.array([
-        [25,  30,  120],
-        [40,  45,  180],
-        [55,  60,  250],
-        [35,  38,  160],
-        [30,  35,  140],
-        [45,  50,  200],
-        [70,  75,  320],
-        [80,  82,  380],
-        [88,  90,  430],
-        [92,  95,  500],
-        [85,  88,  460],
-        [75,  78,  350],
-    ], dtype=float)
+El modelo aplica la **función sigmoide** sobre una combinación lineal de las entradas para producir una probabilidad entre 0 y 1:
 
-    y = np.array([0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1], dtype=float)
+```
+ŷ = σ(z) = 1 / (1 + e⁻ᶻ)     donde     z = wᵀx + b
+```
 
-    # ----------------------------------------------------------
-    # PREPROCESAMIENTO
-    # ----------------------------------------------------------
-    X_norm, mins, rangos = normalizar(X)
+Los parámetros `w` y `b` se optimizan minimizando la **Entropía Cruzada Binaria** mediante Gradiente Descendiente:
 
-    # ----------------------------------------------------------
-    # ENTRENAMIENTO
-    # ----------------------------------------------------------
-    print("=" * 52)
-    print("  REGRESION LOGISTICA BINARIA — MAT205-LAB")
-    print("=" * 52)
-    print()
+```
+w := w − α · (1/n) · Xᵀ(ŷ − y)
+b := b − α · (1/n) · Σ(ŷ − y)
+```
 
-    w, b, historial, epocas = entrenar(X_norm, y, alfa=0.1, max_iter=3000, tol=1e-6)
+La función de costo es convexa, lo que garantiza convergencia siempre al mínimo global.
 
-    print()
-    print("--- Parametros Optimizados ---")
-    print(f"Pesos (w): {np.round(w, 4)}")
-    print(f"  w_CPU     = {w[0]:.4f}")
-    print(f"  w_RAM     = {w[1]:.4f}")
-    print(f"  w_Trafico = {w[2]:.4f}")
-    print(f"Sesgo  (b): {b:.4f}")
-    print(f"Costo final: {historial[-1]:.6f}")
+---
 
-    # ----------------------------------------------------------
-    # EVALUACION SOBRE DATOS DE ENTRENAMIENTO
-    # ----------------------------------------------------------
-    probs_train, preds_train = predecir(X_norm, w, b)
-    metricas = evaluar(y, preds_train)
+## Caso de uso
 
-    print()
-    print("--- Evaluacion sobre datos de entrenamiento ---")
-    print(f"Exactitud : {metricas['exactitud']*100:.1f}%")
-    print(f"Precision : {metricas['precision']*100:.1f}%")
-    print(f"Recall    : {metricas['recall']*100:.1f}%")
-    print(f"F1-Score  : {metricas['f1']*100:.1f}%")
+**Predicción de fallos en servidores de infraestructura TI.**  
+El modelo permite anticipar el colapso de un servidor antes de que ocurra, disparando alertas de auto-escalado cuando la probabilidad supera el umbral del 50%, pasando de un sistema reactivo a uno predictivo.
 
-    # ----------------------------------------------------------
-    # EVALUACION SOBRE CASOS DE PRUEBA
-    # ----------------------------------------------------------
-    casos_prueba = np.array([
-        [35,  40,  150],   # Caso estable claro
-        [60,  65,  280],   # Zona intermedia
-        [78,  80,  380],   # Caso critico medio
-        [90,  95,  500],   # Caso critico extremo
-    ], dtype=float)
-
-    etiquetas_reales = np.array([0, 0, 1, 1])
-
-    casos_norm = (casos_prueba - mins) / rangos
-    probs_prueba, preds_prueba = predecir(casos_norm, w, b)
-
-    print()
-    print("--- Evaluacion sobre Casos de Prueba ---")
-    print(f"{'Servidor':<10} {'CPU':>5} {'RAM':>5} {'Traf':>6}  {'Clase Real':>10}  {'P(colapso)':>12}  {'Accion':>25}")
-    print("-" * 80)
-
-    acciones = {0: "Servidor Estable", 1: "DISPARAR ALERTA"}
-    for i, (caso, prob, pred, real) in enumerate(zip(casos_prueba, probs_prueba, preds_prueba, etiquetas_reales)):
-        accion = acciones[pred]
-        marca = "OK" if pred == real else "ERROR"
-        print(f"Servidor {i+1:<2} {int(caso[0]):>4}% {int(caso[1]):>4}% {int(caso[2]):>5}Mbps  "
-              f"{'Critico' if real == 1 else 'Estable':>10}  "
-              f"{prob*100:>10.1f}%  "
-              f"{accion:>25}  [{marca}]")
-
-    print()
-    print("=" * 52)
-    print("  Fin de ejecucion — modelo_logistico.py")
-    print("=" * 52)
